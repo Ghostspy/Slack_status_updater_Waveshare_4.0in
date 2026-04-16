@@ -57,7 +57,7 @@ static int _getSlackStatus() {
         if (line == "\r") break;
     }
 
-    JsonDocument doc;
+    DynamicJsonDocument doc(4096);
     DeserializationError err = deserializeJson(doc, _client);
     _client.stop();
 

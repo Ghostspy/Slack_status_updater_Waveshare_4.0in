@@ -188,6 +188,118 @@ static void _btn_event_cb(lv_event_t *e) {
     }
 }
 
+// ---- Button icon drawing ----
+// Each button gets a simple vector icon drawn in its LV_EVENT_DRAW_MAIN callback.
+// Shapes are basic LVGL primitives — no image files or extra fonts required.
+
+static void _fill_ri(lv_layer_t *layer,
+                     int32_t x1, int32_t y1, int32_t x2, int32_t y2,
+                     lv_color_t color, int32_t radius) {
+    lv_draw_rect_dsc_t d;
+    lv_draw_rect_dsc_init(&d);
+    d.bg_color     = color;
+    d.bg_opa       = LV_OPA_COVER;
+    d.radius       = radius;
+    d.border_width = 0;
+    lv_area_t a    = {x1, y1, x2, y2};
+    lv_draw_rect(layer, &d, &a);
+}
+
+static void _draw_icon(lv_layer_t *layer, int32_t cx, int32_t cy, int idx) {
+    const lv_color_t W  = lv_color_hex(0xf9fafb);  // near-white
+    const lv_color_t BL = lv_color_hex(0x60a5fa);  // sky blue
+    const lv_color_t RD = lv_color_hex(0xef4444);  // red
+    const lv_color_t DK = lv_color_hex(0x0f172a);  // very dark (pupils)
+
+    switch (idx) {
+
+        case 0: // Offline — red no-entry circle with white bar
+            _fill_ri(layer, cx-46, cy-46, cx+46, cy+46, RD, LV_RADIUS_CIRCLE);
+            _fill_ri(layer, cx-30, cy-10, cx+30, cy+10, W,  8);
+            break;
+
+        case 1: // Lurking — pair of eyes with pupils
+            _fill_ri(layer, cx-44, cy-18, cx-8,  cy+18, W,  LV_RADIUS_CIRCLE);
+            _fill_ri(layer, cx+8,  cy-18, cx+44, cy+18, W,  LV_RADIUS_CIRCLE);
+            _fill_ri(layer, cx-31, cy-9,  cx-21, cy+9,  DK, LV_RADIUS_CIRCLE);
+            _fill_ri(layer, cx+21, cy-9,  cx+31, cy+9,  DK, LV_RADIUS_CIRCLE);
+            _fill_ri(layer, cx-27, cy-5,  cx-22, cy+0,  W,  LV_RADIUS_CIRCLE);
+            _fill_ri(layer, cx+29, cy-5,  cx+34, cy+0,  W,  LV_RADIUS_CIRCLE);
+            break;
+
+        case 2: { // Available to chat — speech bubble with tail + text lines
+            _fill_ri(layer, cx-44, cy-34, cx+44, cy+20, BL, 14);
+            _fill_ri(layer, cx-38, cy+16, cx-18, cy+38, BL, 0);
+            _fill_ri(layer, cx-32, cy-20, cx+32, cy-12, W,  4);
+            _fill_ri(layer, cx-32, cy-4,  cx+22, cy+4,  W,  4);
+            _fill_ri(layer, cx-32, cy+12, cx+8,  cy+20, W,  4);
+            break;
+        }
+
+        case 3: { // In a meeting — calendar outline with header and date grid
+            lv_draw_rect_dsc_t cd;
+            lv_draw_rect_dsc_init(&cd);
+            cd.bg_opa       = LV_OPA_TRANSP;
+            cd.border_color = W;
+            cd.border_width = 3;
+            cd.border_opa   = LV_OPA_COVER;
+            cd.radius       = 8;
+            lv_area_t ca    = {cx-42, cy-26, cx+42, cy+46};
+            lv_draw_rect(layer, &cd, &ca);
+            // Header (rounded top, straight bottom)
+            _fill_ri(layer, cx-42, cy-26, cx+42, cy-6,  BL, 8);
+            _fill_ri(layer, cx-42, cy-16, cx+42, cy-6,  BL, 0);
+            // Ring hangers above calendar
+            _fill_ri(layer, cx-24, cy-42, cx-14, cy-22, W,  4);
+            _fill_ri(layer, cx+14, cy-42, cx+24, cy-22, W,  4);
+            // 3×3 date grid
+            for (int r = 0; r < 3; r++) {
+                for (int c = 0; c < 3; c++) {
+                    int32_t gx = cx - 28 + c * 28;
+                    int32_t gy = cy + 6  + r * 18;
+                    _fill_ri(layer, gx-8, gy-6, gx+8, gy+6, W, 3);
+                }
+            }
+            break;
+        }
+
+        case 4: // Lunch — fork (left) and knife (right)
+            // Fork handle + 3 prongs + neck bar
+            _fill_ri(layer, cx-25, cy-8,  cx-16, cy+46, W, 4);
+            _fill_ri(layer, cx-28, cy-46, cx-24, cy-6,  W, 2);
+            _fill_ri(layer, cx-22, cy-46, cx-18, cy-6,  W, 2);
+            _fill_ri(layer, cx-16, cy-46, cx-12, cy-6,  W, 2);
+            _fill_ri(layer, cx-30, cy-12, cx-10, cy-4,  W, 2);
+            // Knife handle + blade
+            _fill_ri(layer, cx+16, cy-8,  cx+25, cy+46, W, 4);
+            _fill_ri(layer, cx+12, cy-46, cx+25, cy-6,  W, 4);
+            break;
+
+        case 5: // Walking the dog — paw print (large pad + 4 toe pads)
+            _fill_ri(layer, cx-26, cy+4,  cx+26, cy+46, W, LV_RADIUS_CIRCLE);
+            _fill_ri(layer, cx-40, cy-24, cx-16, cy+0,  W, LV_RADIUS_CIRCLE);
+            _fill_ri(layer, cx-22, cy-38, cx+2,  cy-14, W, LV_RADIUS_CIRCLE);
+            _fill_ri(layer, cx-2,  cy-38, cx+22, cy-14, W, LV_RADIUS_CIRCLE);
+            _fill_ri(layer, cx+16, cy-24, cx+40, cy+0,  W, LV_RADIUS_CIRCLE);
+            break;
+    }
+}
+
+// Fires after the button's background/border draw; paints the icon on top.
+// Children (text label) draw after this, so the label appears over the icon.
+static void _icon_draw_cb(lv_event_t *e) {
+    if (lv_event_get_code(e) != LV_EVENT_DRAW_MAIN) return;
+    lv_layer_t *layer = lv_event_get_layer(e);
+    lv_obj_t   *obj   = (lv_obj_t *)lv_event_get_target(e);
+    int         idx   = (int)(intptr_t)lv_event_get_user_data(e);
+
+    lv_area_t a;
+    lv_obj_get_coords(obj, &a);
+    int32_t cx = (a.x1 + a.x2) / 2;
+    int32_t cy = a.y1 + (a.y2 - a.y1) * 45 / 100;  // 45% down from top
+    _draw_icon(layer, cx, cy, idx);
+}
+
 // ---- Build the LVGL UI (status bar + 3x2 button grid) ----
 static void _createUI() {
     lv_obj_t *scr = lv_scr_act();
@@ -251,9 +363,14 @@ static void _createUI() {
         lv_obj_t *lbl = lv_label_create(_btns[i]);
         lv_label_set_text(lbl, BTN_LABELS[i]);
         lv_label_set_long_mode(lbl, LV_LABEL_LONG_WRAP);
+        lv_obj_set_width(lbl, lv_pct(100));
         lv_obj_set_style_text_color(lbl, CLR_TEXT, LV_PART_MAIN);
         lv_obj_set_style_text_font(lbl, &lv_font_montserrat_14, LV_PART_MAIN);
-        lv_obj_align(lbl, LV_ALIGN_CENTER, 0, 0);
+        lv_obj_set_style_text_align(lbl, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
+        lv_obj_align(lbl, LV_ALIGN_BOTTOM_MID, 0, -12);
+
+        lv_obj_add_event_cb(_btns[i], _icon_draw_cb, LV_EVENT_DRAW_MAIN,
+                            (void*)(intptr_t)i);
     }
 }
 
